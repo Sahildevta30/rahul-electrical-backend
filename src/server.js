@@ -4,20 +4,13 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 
-// ── Middleware ────────────────────────────────────────────────
 app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "https://rahulelectricalworks.in",
-    "https://admin.rahulelectricalworks.in",
-  ],
+  origin: "*",
   credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ── Routes ────────────────────────────────────────────────────
 app.use("/api/auth",      require("./routes/authRoutes"));
 app.use("/api/products",  require("./routes/productRoutes"));
 app.use("/api/orders",    require("./routes/orderRoutes"));
@@ -27,14 +20,12 @@ app.use("/api/customers", require("./routes/customerRoutes"));
 app.use("/api/inventory", require("./routes/inventoryRoutes"));
 app.use("/api/settings",  require("./routes/settingsRoutes"));
 
-// ── Dashboard stats shortcut ──────────────────────────────────
 const protect = require("./middleware/authMiddleware");
 const admin   = require("./middleware/adminMiddleware");
 const { getDashboardStats } = require("./controllers/orderController");
 app.get("/api/dashboard", protect, admin, getDashboardStats);
 
-// ── Health check ──────────────────────────────────────────────
-app.get("/", (req, res) => {
+app.get("/",(req,res)=>{
   res.json({
     name: "Rahul Electrical Works API",
     version: "1.0.0",
@@ -42,18 +33,15 @@ app.get("/", (req, res) => {
   });
 });
 
-// ── 404 handler ───────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// ── Error handler ─────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ message: "Internal server error" });
 });
 
-// ── Start ─────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Rahul Electrical Works API running on port ${PORT}`);
