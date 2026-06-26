@@ -1,7 +1,6 @@
 const express = require("express");
 const router = express.Router();
 const ic = require("../controllers/inventoryController");
-const sc = require("../controllers/settingsController");
 const protect = require("../middleware/authMiddleware");
 const admin = require("../middleware/adminMiddleware");
 
