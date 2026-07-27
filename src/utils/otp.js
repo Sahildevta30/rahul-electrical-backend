@@ -14,12 +14,21 @@ const sendOTP = async (phone, otp) => {
 
   // Production: use 2Factor.in (affordable for India)
   // Sign up at 2factor.in and get API key
+  if (!process.env.OTP_API_KEY) {
+    console.error("OTP send failed: OTP_API_KEY is not configured on the server.");
+    return false;
+  }
+
   try {
     const response = await fetch(
       `https://2factor.in/API/V1/${process.env.OTP_API_KEY}/SMS/${phone}/${otp}/OTP1`
     );
     const data = await response.json();
-    return data.Status === "Success";
+    if (data.Status !== "Success") {
+      console.error("OTP send failed: 2Factor.in response:", data);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("OTP send failed:", err);
     return false;

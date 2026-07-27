@@ -82,7 +82,10 @@ exports.sendOtp = async (req, res) => {
       [phone, otp, expires]
     );
 
-    await sendOTP(phone, otp);
+    const sent = await sendOTP(phone, otp);
+    if (!sent) {
+      return res.status(502).json({ message: "Could not send OTP SMS. Please try again later or contact support." });
+    }
     res.json({ message: "OTP sent" });
   } catch (err) {
     console.error(err);
