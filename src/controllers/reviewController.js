@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 
-// ── Create review ─────────────────────────────────────────────
+// ── Create review (product review, requires login) ────────────
 exports.createReview = async (req, res) => {
   try {
     const { product_id, rating, comment } = req.body;
@@ -34,6 +34,49 @@ exports.createReview = async (req, res) => {
   }
 };
 
+// ── Create a general/shop review (public, no login required) ──
+exports.createGeneralReview = async (req, res) => {
+  try {
+    const { name, rating, comment } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Rating must be 1-5" });
+    }
+
+    const result = await pool.query(
+      "INSERT INTO reviews (guest_name, rating, comment) VALUES ($1,$2,$3) RETURNING *",
+      [name.trim(), rating, comment || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to submit review" });
+  }
+};
+
+// ── Public: get approved general (shop-level) reviews ──────────
+exports.getPublicReviews = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT r.id, r.rating, r.comment, r.created_at,
+              COALESCE(r.guest_name, u.name, 'Customer') AS display_name
+       FROM reviews r
+       LEFT JOIN users u ON u.id = r.user_id
+       WHERE r.approved = true AND r.product_id IS NULL
+       ORDER BY r.created_at DESC
+       LIMIT 12`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch reviews" });
+  }
+};
+
 // ── Admin: Get all reviews ────────────────────────────────────
 exports.getAllReviews = async (req, res) => {
   try {
@@ -47,7 +90,7 @@ exports.getAllReviews = async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT r.*, u.name AS user_name, p.name AS product_name
+      `SELECT r.*, COALESCE(u.name, r.guest_name) AS user_name, p.name AS product_name
        FROM reviews r
        LEFT JOIN users u ON u.id=r.user_id
        LEFT JOIN products p ON p.id=r.product_id
