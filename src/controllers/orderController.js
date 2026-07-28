@@ -99,7 +99,10 @@ exports.getMyOrders = async (req, res) => {
               JSON_AGG(JSON_BUILD_OBJECT(
                 'id', oi.id, 'product_id', oi.product_id, 'quantity', oi.quantity,
                 'price', oi.price, 'name', p.name, 'image_url', p.image_url
-              )) AS items
+              )) AS items,
+              (SELECT note FROM order_status_history h
+                WHERE h.order_id = o.id AND h.note IS NOT NULL AND h.note <> ''
+                ORDER BY h.created_at DESC LIMIT 1) AS tracking_note
        FROM orders o
        LEFT JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN products p ON p.id = oi.product_id
