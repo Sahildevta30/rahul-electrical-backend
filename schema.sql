@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    guest_name VARCHAR(255),
     rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
     approved BOOLEAN DEFAULT false,
