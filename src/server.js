@@ -19,6 +19,7 @@ try { app.use("/api/reviews", require("./routes/reviewRoutes")); } catch(e) { co
 try { app.use("/api/customers", require("./routes/customerRoutes")); } catch(e) { console.error("customerRoutes error:", e.message); }
 try { app.use("/api/inventory", require("./routes/inventoryRoutes")); } catch(e) { console.error("inventoryRoutes error:", e.message); }
 try { app.use("/api/settings", require("./routes/settingsRoutes")); } catch(e) { console.error("settingsRoutes error:", e.message); }
+try { app.use("/api/wishlist", require("./routes/wishlistRoutes")); } catch(e) { console.error("wishlistRoutes error:", e.message); }
 
 try {
   const protect = require("./middleware/authMiddleware");
