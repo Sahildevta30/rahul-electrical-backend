@@ -1,4 +1,7 @@
 const pool = require("../config/db");
+const {
+  sendEmail, orderConfirmationEmail, orderStatusUpdateEmail, newOrderOwnerNotification,
+} = require("../utils/email");
 
 // ── Create order ──────────────────────────────────────────────
 exports.createOrder = async (req, res) => {
@@ -82,6 +85,27 @@ exports.createOrder = async (req, res) => {
 
     await client.query("COMMIT");
     res.status(201).json({ order: order.rows[0], items: orderItems });
+
+    // Fire-and-forget email notifications (never blocks or fails the order)
+    pool.query("SELECT name, email, phone FROM users WHERE id=$1", [req.user.id])
+      .then(({ rows }) => {
+        const customer = rows[0];
+        if (customer?.email) {
+          sendEmail(
+            customer.email,
+            "Order Confirmed — Rahul Electrical Works",
+            orderConfirmationEmail({ order: order.rows[0], items: orderItems, customerName: customer.name })
+          );
+        }
+        if (process.env.EMAIL_USER) {
+          sendEmail(
+            process.env.EMAIL_USER,
+            "New Order Received",
+            newOrderOwnerNotification({ order: order.rows[0], items: orderItems, customerName: customer?.name, customerPhone: customer?.phone })
+          );
+        }
+      })
+      .catch((e) => console.error("Order email lookup failed:", e.message));
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(err);
@@ -206,6 +230,20 @@ exports.updateOrderStatus = async (req, res) => {
     );
 
     res.json(result.rows[0]);
+
+    // Fire-and-forget: notify customer of status change
+    pool.query("SELECT name, email FROM users WHERE id=$1", [result.rows[0].user_id])
+      .then(({ rows }) => {
+        const customer = rows[0];
+        if (customer?.email) {
+          sendEmail(
+            customer.email,
+            `Order Update: ${status[0].toUpperCase()}${status.slice(1)} — Rahul Electrical Works`,
+            orderStatusUpdateEmail({ order: result.rows[0], status, note, customerName: customer.name })
+          );
+        }
+      })
+      .catch((e) => console.error("Order status email lookup failed:", e.message));
   } catch (err) {
     res.status(500).json({ message: "Failed to update order" });
   }
