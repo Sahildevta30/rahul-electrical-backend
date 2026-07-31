@@ -31,4 +31,14 @@ try {
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
+(async () => {
+  try {
+    const { runMigrations } = require("./migrate");
+    await runMigrations();
+    console.log("✅ Database migrations up to date");
+  } catch (err) {
+    console.error("⚠️ Migration error (server will still start):", err.message);
+  }
+  app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+})();
