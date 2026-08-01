@@ -1,20 +1,3 @@
-const nodemailer = require("nodemailer");
-
-let transporter = null;
-
-function getTransporter() {
-  if (transporter) return transporter;
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) return null;
-  transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_APP_PASSWORD,
-    },
-  });
-  return transporter;
-}
-
 const SHOP_NAME = "Rahul Electrical Works";
 const BRAND_COLOR = "#eab308";
 
@@ -36,23 +19,37 @@ function wrapTemplate(title, bodyHtml) {
 }
 
 /**
- * Send an email. Never throws — logs and returns false on any failure
- * (e.g. EMAIL_USER/EMAIL_APP_PASSWORD not configured yet).
+ * Send an email via SendGrid's HTTP API (not raw SMTP).
+ * Render's free tier blocks/throttles outbound SMTP ports, so we use
+ * SendGrid's HTTPS API instead — this is unaffected by that restriction.
+ * Never throws — logs and returns false on any failure (e.g. missing
+ * SENDGRID_API_KEY, or not yet configured).
  */
 async function sendEmail(to, subject, html) {
   if (!to) return false;
-  const t = getTransporter();
-  if (!t) {
-    console.error("Email not sent: EMAIL_USER/EMAIL_APP_PASSWORD not configured.");
+  if (!process.env.SENDGRID_API_KEY || !process.env.EMAIL_FROM) {
+    console.error("Email not sent: SENDGRID_API_KEY/EMAIL_FROM not configured.");
     return false;
   }
   try {
-    await t.sendMail({
-      from: `"${SHOP_NAME}" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      html,
+    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: process.env.EMAIL_FROM, name: SHOP_NAME },
+        subject,
+        content: [{ type: "text/html", value: html }],
+      }),
     });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error("Email send failed:", res.status, errText);
+      return false;
+    }
     return true;
   } catch (err) {
     console.error("Email send failed:", err.message);
