@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const {
   sendEmail, bookingConfirmationEmail, bookingStatusUpdateEmail, newBookingOwnerNotification,
 } = require("../utils/email");
+const { sendSMS, bookingStatusSMS } = require("../utils/sms");
 
 const SERVICE_TYPES = [
   "Motor Rewinding",
@@ -35,7 +36,7 @@ exports.createBooking = async (req, res) => {
 
     res.status(201).json(result.rows[0]);
 
-    // Fire-and-forget email notifications
+    // Fire-and-forget email + SMS notifications
     pool.query("SELECT name, email, phone FROM users WHERE id=$1", [req.user.id])
       .then(({ rows }) => {
         const customer = rows[0];
@@ -46,9 +47,12 @@ exports.createBooking = async (req, res) => {
             bookingConfirmationEmail({ booking: result.rows[0], customerName: customer.name })
           );
         }
-        if (process.env.EMAIL_USER) {
+        if (customer?.phone) {
+          sendSMS(customer.phone, bookingStatusSMS({ serviceType: result.rows[0].service_type, status: "pending" }));
+        }
+        if (process.env.EMAIL_FROM) {
           sendEmail(
-            process.env.EMAIL_USER,
+            process.env.EMAIL_FROM,
             "New Service Booking",
             newBookingOwnerNotification({ booking: result.rows[0], customerName: customer?.name, customerPhone: customer?.phone })
           );
@@ -132,7 +136,7 @@ exports.updateBookingStatus = async (req, res) => {
     res.json(result.rows[0]);
 
     // Fire-and-forget: notify customer of status change
-    pool.query("SELECT name, email FROM users WHERE id=$1", [result.rows[0].user_id])
+    pool.query("SELECT name, email, phone FROM users WHERE id=$1", [result.rows[0].user_id])
       .then(({ rows }) => {
         const customer = rows[0];
         if (customer?.email) {
@@ -141,6 +145,9 @@ exports.updateBookingStatus = async (req, res) => {
             `Booking Update: ${status} — Rahul Electrical Works`,
             bookingStatusUpdateEmail({ booking: result.rows[0], status, note: admin_notes, customerName: customer.name })
           );
+        }
+        if (customer?.phone) {
+          sendSMS(customer.phone, bookingStatusSMS({ serviceType: result.rows[0].service_type, status, note: admin_notes }));
         }
       })
       .catch((e) => console.error("Booking status email lookup failed:", e.message));

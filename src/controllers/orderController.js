@@ -2,6 +2,7 @@ const pool = require("../config/db");
 const {
   sendEmail, orderConfirmationEmail, orderStatusUpdateEmail, newOrderOwnerNotification,
 } = require("../utils/email");
+const { sendSMS, orderStatusSMS } = require("../utils/sms");
 
 // ── Create order ──────────────────────────────────────────────
 exports.createOrder = async (req, res) => {
@@ -86,7 +87,7 @@ exports.createOrder = async (req, res) => {
     await client.query("COMMIT");
     res.status(201).json({ order: order.rows[0], items: orderItems });
 
-    // Fire-and-forget email notifications (never blocks or fails the order)
+    // Fire-and-forget email + SMS notifications (never blocks or fails the order)
     pool.query("SELECT name, email, phone FROM users WHERE id=$1", [req.user.id])
       .then(({ rows }) => {
         const customer = rows[0];
@@ -97,9 +98,12 @@ exports.createOrder = async (req, res) => {
             orderConfirmationEmail({ order: order.rows[0], items: orderItems, customerName: customer.name })
           );
         }
-        if (process.env.EMAIL_USER) {
+        if (customer?.phone) {
+          sendSMS(customer.phone, orderStatusSMS({ orderId: order.rows[0].id, status: "pending" }));
+        }
+        if (process.env.EMAIL_FROM) {
           sendEmail(
-            process.env.EMAIL_USER,
+            process.env.EMAIL_FROM,
             "New Order Received",
             newOrderOwnerNotification({ order: order.rows[0], items: orderItems, customerName: customer?.name, customerPhone: customer?.phone })
           );
@@ -232,7 +236,7 @@ exports.updateOrderStatus = async (req, res) => {
     res.json(result.rows[0]);
 
     // Fire-and-forget: notify customer of status change
-    pool.query("SELECT name, email FROM users WHERE id=$1", [result.rows[0].user_id])
+    pool.query("SELECT name, email, phone FROM users WHERE id=$1", [result.rows[0].user_id])
       .then(({ rows }) => {
         const customer = rows[0];
         if (customer?.email) {
@@ -241,6 +245,9 @@ exports.updateOrderStatus = async (req, res) => {
             `Order Update: ${status[0].toUpperCase()}${status.slice(1)} — Rahul Electrical Works`,
             orderStatusUpdateEmail({ order: result.rows[0], status, note, customerName: customer.name })
           );
+        }
+        if (customer?.phone) {
+          sendSMS(customer.phone, orderStatusSMS({ orderId: result.rows[0].id, status, note }));
         }
       })
       .catch((e) => console.error("Order status email lookup failed:", e.message));
