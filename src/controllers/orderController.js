@@ -98,14 +98,18 @@ exports.createOrder = async (req, res) => {
             orderConfirmationEmail({ order: order.rows[0], items: orderItems, customerName: customer.name })
           );
         }
-        if (customer?.phone) {
-          sendSMS(customer.phone, orderStatusSMS({ orderId: order.rows[0].id, status: "pending" }));
+        // Prefer the phone entered at checkout (shipping_phone) — the
+        // account's users.phone may be empty for email/password signups,
+        // or different from the number they want used for this order.
+        const smsPhone = order.rows[0].shipping_phone || customer?.phone;
+        if (smsPhone) {
+          sendSMS(smsPhone, orderStatusSMS({ orderId: order.rows[0].id, status: "pending" }));
         }
         if (process.env.EMAIL_FROM) {
           sendEmail(
             process.env.EMAIL_FROM,
             "New Order Received",
-            newOrderOwnerNotification({ order: order.rows[0], items: orderItems, customerName: customer?.name, customerPhone: customer?.phone })
+            newOrderOwnerNotification({ order: order.rows[0], items: orderItems, customerName: customer?.name, customerPhone: smsPhone })
           );
         }
       })
@@ -246,8 +250,12 @@ exports.updateOrderStatus = async (req, res) => {
             orderStatusUpdateEmail({ order: result.rows[0], status, note, customerName: customer.name })
           );
         }
-        if (customer?.phone) {
-          sendSMS(customer.phone, orderStatusSMS({ orderId: result.rows[0].id, status, note }));
+        const smsPhone = result.rows[0].shipping_phone || customer?.phone;
+        if (smsPhone) {
+          sendSMS(smsPhone, orderStatusSMS({ orderId: result.rows[0].id, status, note }))
+            .then((ok) => console.log(`SMS ${ok ? "sent" : "failed"} for order ${result.rows[0].id} → ${smsPhone}`));
+        } else {
+          console.log(`SMS skipped for order ${result.rows[0].id}: no shipping_phone or account phone on file`);
         }
       })
       .catch((e) => console.error("Order status email lookup failed:", e.message));
