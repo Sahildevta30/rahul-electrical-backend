@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS orders (
     shipping_phone VARCHAR(20),
     shipping_address TEXT,
     shipping_city VARCHAR(100),
+    shipping_state VARCHAR(100),
     shipping_pincode VARCHAR(10),
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -17,6 +17,7 @@ exports.createOrder = async (req, res) => {
       shipping_phone,
       shipping_address,
       shipping_city,
+      shipping_state,
       shipping_pincode,
       notes,
     } = req.body;
@@ -54,13 +55,13 @@ exports.createOrder = async (req, res) => {
     const order = await client.query(
       `INSERT INTO orders
         (user_id, total_amount, payment_method, shipping_name, shipping_phone,
-         shipping_address, shipping_city, shipping_pincode, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         shipping_address, shipping_city, shipping_state, shipping_pincode, notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING *`,
       [
         req.user.id, total, payment_method,
         shipping_name, shipping_phone, shipping_address,
-        shipping_city, shipping_pincode, notes,
+        shipping_city, shipping_state, shipping_pincode, notes,
       ]
     );
 
