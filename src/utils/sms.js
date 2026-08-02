@@ -49,6 +49,7 @@ async function sendSMS(phone, message) {
       console.error("SMS send failed: 2Factor.in response:", data);
       return false;
     }
+    console.log(`SMS accepted by 2Factor.in — Details/SessionID: ${data.Details}, to: ${to}`);
     return true;
   } catch (err) {
     console.error("SMS send failed:", err.message);
